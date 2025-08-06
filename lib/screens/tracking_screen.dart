@@ -29,7 +29,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
   int _currentSet = 1; // Track current set number
   int _playerGamesInCurrentSet = 0; // Track player games in current set
   int _opponentGamesInCurrentSet = 0; // Track opponent games in current set
-  
+
   // Track current set statistics
   int _currentSetAces = 0;
   int _currentSetFaults = 0;
@@ -569,21 +569,34 @@ class _TrackingScreenState extends State<TrackingScreen> {
     setState(() {
       switch (result) {
         case ServeResult.ace:
-          _currentSetAces = (_currentSetAces - 1).clamp(0, double.infinity).toInt();
-          _currentSetSuccessfulServes = (_currentSetSuccessfulServes - 1).clamp(0, double.infinity).toInt();
-          _currentSetTotalServes = (_currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
+          _currentSetAces =
+              (_currentSetAces - 1).clamp(0, double.infinity).toInt();
+          _currentSetSuccessfulServes =
+              (_currentSetSuccessfulServes - 1)
+                  .clamp(0, double.infinity)
+                  .toInt();
+          _currentSetTotalServes =
+              (_currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
           break;
         case ServeResult.successful:
-          _currentSetSuccessfulServes = (_currentSetSuccessfulServes - 1).clamp(0, double.infinity).toInt();
-          _currentSetTotalServes = (_currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
+          _currentSetSuccessfulServes =
+              (_currentSetSuccessfulServes - 1)
+                  .clamp(0, double.infinity)
+                  .toInt();
+          _currentSetTotalServes =
+              (_currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
           break;
         case ServeResult.fault:
-          _currentSetFaults = (_currentSetFaults - 1).clamp(0, double.infinity).toInt();
-          _currentSetTotalServes = (_currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
+          _currentSetFaults =
+              (_currentSetFaults - 1).clamp(0, double.infinity).toInt();
+          _currentSetTotalServes =
+              (_currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
           break;
         case ServeResult.footFault:
-          _currentSetFootFaults = (_currentSetFootFaults - 1).clamp(0, double.infinity).toInt();
-          _currentSetTotalServes = (_currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
+          _currentSetFootFaults =
+              (_currentSetFootFaults - 1).clamp(0, double.infinity).toInt();
+          _currentSetTotalServes =
+              (_currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
           break;
       }
     });
@@ -849,6 +862,47 @@ class _TrackingScreenState extends State<TrackingScreen> {
     final currentMatch = matches.reduce(
       (a, b) => a.date.isAfter(b.date) ? a : b,
     );
+
+    // Check if we've reached the total number of sets for this match
+    if (currentMatch.sets.length >= currentMatch.totalSets) {
+      // Determine match result based on sets won
+      final playerSetsWon =
+          currentMatch.sets.where((set) => set.playerWon).length;
+      final opponentSetsWon =
+          currentMatch.sets.where((set) => !set.playerWon).length;
+
+      final result =
+          playerSetsWon > opponentSetsWon
+              ? match_model.MatchResult.win
+              : match_model.MatchResult.loss;
+
+      // Update match as completed
+      final completedMatch = currentMatch.copyWith(
+        result: result,
+        completedAt: DateTime.now(),
+        isFinished: true,
+      );
+
+      appProvider.updateMatch(currentMatch.id, completedMatch);
+
+      // Show match completion message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Match completed! Result: ${result == match_model.MatchResult.win ? "Win" : "Loss"}',
+          ),
+          backgroundColor:
+              result == match_model.MatchResult.win
+                  ? const Color(0xFF4CAF50)
+                  : const Color(0xFFE53E3E),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      // Navigate back to home screen
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      return;
+    }
 
     // Create new set with accumulated statistics
     final newSet = match_model.Set(
