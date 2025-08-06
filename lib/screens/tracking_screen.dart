@@ -4,7 +4,9 @@ import '../providers/app_provider.dart';
 import '../widgets/stats_card.dart';
 import '../widgets/tennis_court.dart';
 import '../widgets/serve_tracking_buttons.dart';
+import '../widgets/shot_tracking_dialog.dart';
 import '../models/match_model.dart' as match_model;
+import '../models/shot_model.dart';
 import 'statistics_screen.dart';
 import 'match_setup_screen.dart';
 
@@ -12,10 +14,15 @@ class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key});
 
   @override
-  State<TrackingScreen> createState() => _TrackingScreenState();
+  State<TrackingScreen> createState() => TrackingScreenState();
 }
 
-class _TrackingScreenState extends State<TrackingScreen> {
+// Make the state class public so statistics screen can access current set data
+class TrackingScreenState extends State<TrackingScreen> {
+  static TrackingScreenState? of(BuildContext context) {
+    return context.findAncestorStateOfType<TrackingScreenState>();
+  }
+
   ServeType _selectedServeType = ServeType.first;
   ServeResult? _selectedResult;
   String? _selectedSection;
@@ -30,13 +37,42 @@ class _TrackingScreenState extends State<TrackingScreen> {
   int _playerGamesInCurrentSet = 0; // Track player games in current set
   int _opponentGamesInCurrentSet = 0; // Track opponent games in current set
 
-  // Track current set statistics
-  int _currentSetAces = 0;
-  int _currentSetFaults = 0;
-  int _currentSetFootFaults = 0;
-  int _currentSetSuccessfulServes = 0;
-  int _currentSetTotalServes = 0;
+  // Getter to expose current set number for statistics screen
+  int get currentSet => _currentSet;
 
+  // Track current set serve statistics
+  int currentSetAces = 0;
+  int currentSetFaults = 0;
+  int currentSetFootFaults = 0;
+  int currentSetSuccessfulServes = 0;
+  int currentSetTotalServes = 0;
+
+  // Track current set winners
+  int currentSetApproachWinners = 0;
+  int currentSetPassingWinners = 0;
+  int currentSetGroundstrokeWinners = 0;
+  int currentSetDropshotWinners = 0;
+  int currentSetVolleyWinners = 0;
+  int currentSetOverheadWinners = 0;
+  int currentSetLobWinners = 0;
+
+  // Track current set forced errors
+  int currentSetApproachForced = 0;
+  int currentSetPassingForced = 0;
+  int currentSetGroundstrokeForced = 0;
+  int currentSetDropshotForced = 0;
+  int currentSetVolleyForced = 0;
+  int currentSetOverheadForced = 0;
+  int currentSetLobForced = 0;
+
+  // Track current set unforced errors
+  int currentSetApproachUnforced = 0;
+  int currentSetPassingUnforced = 0;
+  int currentSetGroundstrokeUnforced = 0;
+  int currentSetDropshotUnforced = 0;
+  int currentSetVolleyUnforced = 0;
+  int currentSetOverheadUnforced = 0;
+  int currentSetLobUnforced = 0;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -221,25 +257,61 @@ class _TrackingScreenState extends State<TrackingScreen> {
                 ),
 
                 // Serve tracking buttons
-                ServeTrackingButtons(
-                  selectedServeType: _selectedServeType,
-                  selectedResult: _selectedResult,
-                  onServeTypeChanged: (type) {
-                    setState(() {
-                      _selectedServeType = type;
-                    });
-                  },
-                  onResultSelected: (result) {
-                    if (!_actionTaken) {
-                      setState(() {
-                        _selectedResult = result;
-                      });
-                    }
-                  },
-                  onUndo: _handleUndo,
-                  onNext: _handleNext,
-                  actionTaken: _actionTaken,
-                  pointCompleted: _pointCompleted,
+                Column(
+                  children: [
+                    ServeTrackingButtons(
+                      selectedServeType: _selectedServeType,
+                      selectedResult: _selectedResult,
+                      onServeTypeChanged: (type) {
+                        setState(() {
+                          _selectedServeType = type;
+                        });
+                      },
+                      onResultSelected: (result) {
+                        if (!_actionTaken) {
+                          setState(() {
+                            _selectedResult = result;
+                          });
+                        }
+                      },
+                      onUndo: _handleUndo,
+                      onNext: _handleNext,
+                      actionTaken: _actionTaken,
+                      pointCompleted: _pointCompleted,
+                    ),
+                    if (!_pointCompleted) ...[
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _showShotTrackingDialog,
+                            icon: const Icon(
+                              Icons.sports_tennis,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              'Record Shot',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontFamily: 'Manrope',
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF4CAF50),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
 
                 // Set and game management buttons
@@ -262,60 +334,22 @@ class _TrackingScreenState extends State<TrackingScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _playerGamesInCurrentSet++;
-                                });
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF4CAF50),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: const Text('Player Game'),
+
+                      if (_shouldShowCompleteSetButton())
+                        ElevatedButton(
+                          onPressed: () {
+                            _handleSetComplete();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF6B46C1),
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 40),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _opponentGamesInCurrentSet++;
-                                });
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFFF5722),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: const Text('Opponent Game'),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ElevatedButton(
-                        onPressed: () {
-                          _handleSetComplete();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6B46C1),
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 40),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          child: const Text('Complete Set'),
                         ),
-                        child: const Text('Complete Set'),
-                      ),
                     ],
                   ),
                 ),
@@ -525,16 +559,16 @@ class _TrackingScreenState extends State<TrackingScreen> {
         newSuccessfulServes++;
         newFirstServesIn += firstServesInThisPoint;
         // Update current set statistics
-        _currentSetAces++;
-        _currentSetSuccessfulServes++;
-        _currentSetTotalServes++;
+        currentSetAces++;
+        currentSetSuccessfulServes++;
+        currentSetTotalServes++;
         break;
       case ServeResult.successful:
         newSuccessfulServes++;
         newFirstServesIn += firstServesInThisPoint;
         // Update current set statistics
-        _currentSetSuccessfulServes++;
-        _currentSetTotalServes++;
+        currentSetSuccessfulServes++;
+        currentSetTotalServes++;
         break;
       case ServeResult.fault:
       case ServeResult.footFault:
@@ -544,11 +578,11 @@ class _TrackingScreenState extends State<TrackingScreen> {
         }
         // Update current set statistics
         if (finalPointResult == ServeResult.fault) {
-          _currentSetFaults++;
+          currentSetFaults++;
         } else {
-          _currentSetFootFaults++;
+          currentSetFootFaults++;
         }
-        _currentSetTotalServes++;
+        currentSetTotalServes++;
         break;
     }
 
@@ -569,34 +603,34 @@ class _TrackingScreenState extends State<TrackingScreen> {
     setState(() {
       switch (result) {
         case ServeResult.ace:
-          _currentSetAces =
-              (_currentSetAces - 1).clamp(0, double.infinity).toInt();
-          _currentSetSuccessfulServes =
-              (_currentSetSuccessfulServes - 1)
+          currentSetAces =
+              (currentSetAces - 1).clamp(0, double.infinity).toInt();
+          currentSetSuccessfulServes =
+              (currentSetSuccessfulServes - 1)
                   .clamp(0, double.infinity)
                   .toInt();
-          _currentSetTotalServes =
-              (_currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
+          currentSetTotalServes =
+              (currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
           break;
         case ServeResult.successful:
-          _currentSetSuccessfulServes =
-              (_currentSetSuccessfulServes - 1)
+          currentSetSuccessfulServes =
+              (currentSetSuccessfulServes - 1)
                   .clamp(0, double.infinity)
                   .toInt();
-          _currentSetTotalServes =
-              (_currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
+          currentSetTotalServes =
+              (currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
           break;
         case ServeResult.fault:
-          _currentSetFaults =
-              (_currentSetFaults - 1).clamp(0, double.infinity).toInt();
-          _currentSetTotalServes =
-              (_currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
+          currentSetFaults =
+              (currentSetFaults - 1).clamp(0, double.infinity).toInt();
+          currentSetTotalServes =
+              (currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
           break;
         case ServeResult.footFault:
-          _currentSetFootFaults =
-              (_currentSetFootFaults - 1).clamp(0, double.infinity).toInt();
-          _currentSetTotalServes =
-              (_currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
+          currentSetFootFaults =
+              (currentSetFootFaults - 1).clamp(0, double.infinity).toInt();
+          currentSetTotalServes =
+              (currentSetTotalServes - 1).clamp(0, double.infinity).toInt();
           break;
       }
     });
@@ -814,6 +848,106 @@ class _TrackingScreenState extends State<TrackingScreen> {
     }
   }
 
+  void _recordShot(ShotType type, ShotOutcome outcome) {
+    // Update current set statistics based on shot type and outcome
+    switch (outcome) {
+      case ShotOutcome.winner:
+        switch (type) {
+          case ShotType.approachShot:
+            currentSetApproachWinners++;
+            break;
+          case ShotType.passingShot:
+            currentSetPassingWinners++;
+            break;
+          case ShotType.groundStroke:
+            currentSetGroundstrokeWinners++;
+            break;
+          case ShotType.dropShot:
+            currentSetDropshotWinners++;
+            break;
+          case ShotType.volley:
+            currentSetVolleyWinners++;
+            break;
+          case ShotType.overhead:
+            currentSetOverheadWinners++;
+            break;
+          case ShotType.lob:
+            currentSetLobWinners++;
+            break;
+        }
+        break;
+      case ShotOutcome.forcedError:
+        switch (type) {
+          case ShotType.approachShot:
+            currentSetApproachForced++;
+            break;
+          case ShotType.passingShot:
+            currentSetPassingForced++;
+            break;
+          case ShotType.groundStroke:
+            currentSetGroundstrokeForced++;
+            break;
+          case ShotType.dropShot:
+            currentSetDropshotForced++;
+            break;
+          case ShotType.volley:
+            currentSetVolleyForced++;
+            break;
+          case ShotType.overhead:
+            currentSetOverheadForced++;
+            break;
+          case ShotType.lob:
+            currentSetLobForced++;
+            break;
+        }
+        break;
+      case ShotOutcome.unforcedError:
+        switch (type) {
+          case ShotType.approachShot:
+            currentSetApproachUnforced++;
+            break;
+          case ShotType.passingShot:
+            currentSetPassingUnforced++;
+            break;
+          case ShotType.groundStroke:
+            currentSetGroundstrokeUnforced++;
+            break;
+          case ShotType.dropShot:
+            currentSetDropshotUnforced++;
+            break;
+          case ShotType.volley:
+            currentSetVolleyUnforced++;
+            break;
+          case ShotType.overhead:
+            currentSetOverheadUnforced++;
+            break;
+          case ShotType.lob:
+            currentSetLobUnforced++;
+            break;
+        }
+        break;
+    }
+
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${type.displayName} ${outcome.displayName} recorded',
+          style: const TextStyle(fontFamily: 'Roboto'),
+        ),
+        backgroundColor: const Color(0xFF4CAF50),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  void _showShotTrackingDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => ShotTrackingDialog(onShotRecorded: _recordShot),
+    );
+  }
+
   void _handleNext() {
     if (_pointCompleted) {
       // Reset for next point
@@ -863,7 +997,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
       (a, b) => a.date.isAfter(b.date) ? a : b,
     );
 
-    // Check if we've reached the total number of sets for this match
+    // Check if we've reached the maximum number of sets for this match
     if (currentMatch.sets.length >= currentMatch.totalSets) {
       // Determine match result based on sets won
       final playerSetsWon =
@@ -909,20 +1043,155 @@ class _TrackingScreenState extends State<TrackingScreen> {
       playerGames: _playerGamesInCurrentSet,
       opponentGames: _opponentGamesInCurrentSet,
       playerWon: _playerGamesInCurrentSet > _opponentGamesInCurrentSet,
-      aces: _currentSetAces,
-      faults: _currentSetFaults,
-      footFaults: _currentSetFootFaults,
-      successfulServes: _currentSetSuccessfulServes,
-      totalServes: _currentSetTotalServes,
+      // Serve statistics
+      aces: currentSetAces,
+      faults: currentSetFaults,
+      footFaults: currentSetFootFaults,
+      successfulServes: currentSetSuccessfulServes,
+      totalServes: currentSetTotalServes,
+      // Winners
+      approachShotWinners: currentSetApproachWinners,
+      passingShotWinners: currentSetPassingWinners,
+      groundStrokeWinners: currentSetGroundstrokeWinners,
+      dropShotWinners: currentSetDropshotWinners,
+      volleyWinners: currentSetVolleyWinners,
+      overheadWinners: currentSetOverheadWinners,
+      lobWinners: currentSetLobWinners,
+      // Forced Errors
+      approachShotForcedErrors: currentSetApproachForced,
+      passingShotForcedErrors: currentSetPassingForced,
+      groundStrokeForcedErrors: currentSetGroundstrokeForced,
+      dropShotForcedErrors: currentSetDropshotForced,
+      volleyForcedErrors: currentSetVolleyForced,
+      overheadForcedErrors: currentSetOverheadForced,
+      lobForcedErrors: currentSetLobForced,
+      // Unforced Errors
+      approachShotUnforcedErrors: currentSetApproachUnforced,
+      passingShotUnforcedErrors: currentSetPassingUnforced,
+      groundStrokeUnforcedErrors: currentSetGroundstrokeUnforced,
+      dropShotUnforcedErrors: currentSetDropshotUnforced,
+      volleyUnforcedErrors: currentSetVolleyUnforced,
+      overheadUnforcedErrors: currentSetOverheadUnforced,
+      lobUnforcedErrors: currentSetLobUnforced,
     );
 
     final updatedSets = List<match_model.Set>.from(currentMatch.sets)
       ..add(newSet);
 
-    final updatedMatch = currentMatch.copyWith(sets: updatedSets);
+    // After adding the new set, check if the match should end
+    final finalPlayerSetsWon = updatedSets.where((set) => set.playerWon).length;
+    final finalOpponentSetsWon =
+        updatedSets.where((set) => !set.playerWon).length;
+
+    // Calculate updated match statistics including shot data
+    int newApproachWinners =
+        currentMatch.approachShotWinners + currentSetApproachWinners;
+    int newPassingWinners =
+        currentMatch.passingShotWinners + currentSetPassingWinners;
+    int newGroundstrokeWinners =
+        currentMatch.groundStrokeWinners + currentSetGroundstrokeWinners;
+    int newDropshotWinners =
+        currentMatch.dropShotWinners + currentSetDropshotWinners;
+    int newVolleyWinners = currentMatch.volleyWinners + currentSetVolleyWinners;
+    int newOverheadWinners =
+        currentMatch.overheadWinners + currentSetOverheadWinners;
+    int newLobWinners = currentMatch.lobWinners + currentSetLobWinners;
+
+    int newApproachForced =
+        currentMatch.approachShotForcedErrors + currentSetApproachForced;
+    int newPassingForced =
+        currentMatch.passingShotForcedErrors + currentSetPassingForced;
+    int newGroundstrokeForced =
+        currentMatch.groundStrokeForcedErrors + currentSetGroundstrokeForced;
+    int newDropshotForced =
+        currentMatch.dropShotForcedErrors + currentSetDropshotForced;
+    int newVolleyForced =
+        currentMatch.volleyForcedErrors + currentSetVolleyForced;
+    int newOverheadForced =
+        currentMatch.overheadForcedErrors + currentSetOverheadForced;
+    int newLobForced = currentMatch.lobForcedErrors + currentSetLobForced;
+
+    int newApproachUnforced =
+        currentMatch.approachShotUnforcedErrors + currentSetApproachUnforced;
+    int newPassingUnforced =
+        currentMatch.passingShotUnforcedErrors + currentSetPassingUnforced;
+    int newGroundstrokeUnforced =
+        currentMatch.groundStrokeUnforcedErrors +
+        currentSetGroundstrokeUnforced;
+    int newDropshotUnforced =
+        currentMatch.dropShotUnforcedErrors + currentSetDropshotUnforced;
+    int newVolleyUnforced =
+        currentMatch.volleyUnforcedErrors + currentSetVolleyUnforced;
+    int newOverheadUnforced =
+        currentMatch.overheadUnforcedErrors + currentSetOverheadUnforced;
+    int newLobUnforced = currentMatch.lobUnforcedErrors + currentSetLobUnforced;
+
+    final updatedMatch = currentMatch.copyWith(
+      sets: updatedSets,
+      // Update match-level shot statistics
+      approachShotWinners: newApproachWinners,
+      passingShotWinners: newPassingWinners,
+      groundStrokeWinners: newGroundstrokeWinners,
+      dropShotWinners: newDropshotWinners,
+      volleyWinners: newVolleyWinners,
+      overheadWinners: newOverheadWinners,
+      lobWinners: newLobWinners,
+
+      approachShotForcedErrors: newApproachForced,
+      passingShotForcedErrors: newPassingForced,
+      groundStrokeForcedErrors: newGroundstrokeForced,
+      dropShotForcedErrors: newDropshotForced,
+      volleyForcedErrors: newVolleyForced,
+      overheadForcedErrors: newOverheadForced,
+      lobForcedErrors: newLobForced,
+
+      approachShotUnforcedErrors: newApproachUnforced,
+      passingShotUnforcedErrors: newPassingUnforced,
+      groundStrokeUnforcedErrors: newGroundstrokeUnforced,
+      dropShotUnforcedErrors: newDropshotUnforced,
+      volleyUnforcedErrors: newVolleyUnforced,
+      overheadUnforcedErrors: newOverheadUnforced,
+      lobUnforcedErrors: newLobUnforced,
+    );
 
     // Update the match in the provider
     appProvider.updateMatch(currentMatch.id, updatedMatch);
+
+    // Check if we've now reached the maximum number of sets after adding this set
+    if (updatedSets.length >= currentMatch.totalSets) {
+      // Match is complete after playing all sets, determine result
+      final matchResult =
+          finalPlayerSetsWon > finalOpponentSetsWon
+              ? match_model.MatchResult.win
+              : match_model.MatchResult.loss;
+
+      // Update match as completed
+      final completedMatch = updatedMatch.copyWith(
+        result: matchResult,
+        completedAt: DateTime.now(),
+        isFinished: true,
+      );
+
+      appProvider.updateMatch(currentMatch.id, completedMatch);
+
+      // Show match completion message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Match completed! Final score: $finalPlayerSetsWon-$finalOpponentSetsWon. Result: ${matchResult == match_model.MatchResult.win ? "Win" : "Loss"}',
+          ),
+          backgroundColor:
+              matchResult == match_model.MatchResult.win
+                  ? const Color(0xFF4CAF50)
+                  : const Color(0xFFE53E3E),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      // Navigate back to home screen
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      return;
+    }
 
     setState(() {
       _currentSet++;
@@ -931,11 +1200,36 @@ class _TrackingScreenState extends State<TrackingScreen> {
       _currentServiceGame = 1;
       _pointsInCurrentGame = 0;
       // Reset current set statistics
-      _currentSetAces = 0;
-      _currentSetFaults = 0;
-      _currentSetFootFaults = 0;
-      _currentSetSuccessfulServes = 0;
-      _currentSetTotalServes = 0;
+      // Serve statistics
+      currentSetAces = 0;
+      currentSetFaults = 0;
+      currentSetFootFaults = 0;
+      currentSetSuccessfulServes = 0;
+      currentSetTotalServes = 0;
+      // Winners
+      currentSetApproachWinners = 0;
+      currentSetPassingWinners = 0;
+      currentSetGroundstrokeWinners = 0;
+      currentSetDropshotWinners = 0;
+      currentSetVolleyWinners = 0;
+      currentSetOverheadWinners = 0;
+      currentSetLobWinners = 0;
+      // Forced Errors
+      currentSetApproachForced = 0;
+      currentSetPassingForced = 0;
+      currentSetGroundstrokeForced = 0;
+      currentSetDropshotForced = 0;
+      currentSetVolleyForced = 0;
+      currentSetOverheadForced = 0;
+      currentSetLobForced = 0;
+      // Unforced Errors
+      currentSetApproachUnforced = 0;
+      currentSetPassingUnforced = 0;
+      currentSetGroundstrokeUnforced = 0;
+      currentSetDropshotUnforced = 0;
+      currentSetVolleyUnforced = 0;
+      currentSetOverheadUnforced = 0;
+      currentSetLobUnforced = 0;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -947,6 +1241,25 @@ class _TrackingScreenState extends State<TrackingScreen> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  bool _shouldShowCompleteSetButton() {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final matches = appProvider.matches;
+
+    if (matches.isEmpty) return false;
+
+    // Get the current match
+    final currentMatch = matches.reduce(
+      (a, b) => a.date.isAfter(b.date) ? a : b,
+    );
+
+    // Only hide button if we've already played all sets in the match format
+    if (currentMatch.sets.length >= currentMatch.totalSets) {
+      return false;
+    }
+
+    return true;
   }
 
   Widget _buildEmptyState(BuildContext context) {

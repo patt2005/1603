@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/match_model.dart';
 import 'momentum_screen.dart';
+import 'tracking_screen.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -137,7 +138,10 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                           ),
                         );
                       },
-                      icon: const Icon(Icons.arrow_forward, color: Colors.white),
+                      icon: const Icon(
+                        Icons.arrow_forward,
+                        color: Colors.white,
+                      ),
                       label: const Text(
                         'Next',
                         style: TextStyle(
@@ -406,7 +410,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              setData['totalServes'] == 0 
+              setData['totalServes'] == 0
                   ? '$setName has not been played yet.'
                   : '$setName statistics are tracked from actual match data.',
               style: const TextStyle(
@@ -489,8 +493,47 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     // For individual sets, use actual set data
     final setIndex = int.tryParse(setName.replaceAll('Set ', '')) ?? 1;
 
+    // Get reference to the tracking screen state if it exists
+    final trackingScreen = TrackingScreenState.of(context);
+
     // Check if this specific set exists
     if (setIndex > match.sets.length) {
+      // If this is the current set being played and we have access to the tracking screen
+      // The tracking screen's currentSet represents the actual set number (1, 2, 3, etc.)
+      // We should show current set data when the requested setIndex matches the current set being played
+      if (trackingScreen != null && setIndex == trackingScreen.currentSet) {
+        return {
+          'approachShotWinners': trackingScreen.currentSetApproachWinners,
+          'passingShotWinners': trackingScreen.currentSetPassingWinners,
+          'groundStrokeWinners': trackingScreen.currentSetGroundstrokeWinners,
+          'dropShotWinners': trackingScreen.currentSetDropshotWinners,
+          'volleyWinners': trackingScreen.currentSetVolleyWinners,
+          'overheadWinners': trackingScreen.currentSetOverheadWinners,
+          'lobWinners': trackingScreen.currentSetLobWinners,
+          'approachShotForcedErrors': trackingScreen.currentSetApproachForced,
+          'passingShotForcedErrors': trackingScreen.currentSetPassingForced,
+          'groundStrokeForcedErrors':
+              trackingScreen.currentSetGroundstrokeForced,
+          'dropShotForcedErrors': trackingScreen.currentSetDropshotForced,
+          'volleyForcedErrors': trackingScreen.currentSetVolleyForced,
+          'overheadForcedErrors': trackingScreen.currentSetOverheadForced,
+          'lobForcedErrors': trackingScreen.currentSetLobForced,
+          'approachShotUnforcedErrors':
+              trackingScreen.currentSetApproachUnforced,
+          'passingShotUnforcedErrors': trackingScreen.currentSetPassingUnforced,
+          'groundStrokeUnforcedErrors':
+              trackingScreen.currentSetGroundstrokeUnforced,
+          'dropShotUnforcedErrors': trackingScreen.currentSetDropshotUnforced,
+          'volleyUnforcedErrors': trackingScreen.currentSetVolleyUnforced,
+          'overheadUnforcedErrors': trackingScreen.currentSetOverheadUnforced,
+          'lobUnforcedErrors': trackingScreen.currentSetLobUnforced,
+          'aces': trackingScreen.currentSetAces,
+          'faults': trackingScreen.currentSetFaults,
+          'footFaults': trackingScreen.currentSetFootFaults,
+          'successfulServes': trackingScreen.currentSetSuccessfulServes,
+          'totalServes': trackingScreen.currentSetTotalServes,
+        };
+      }
       // If set doesn't exist yet, return zeros
       return {
         'approachShotWinners': 0,
